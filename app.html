@@ -47,6 +47,27 @@
   }
 
   /* ============== CREATION SCREEN ============== */
+  /* ============== SPLASH / START SCREEN ============== */
+  #splashScreen{
+    /* Sits above #createScreen (z-index 55 > 50) so it's the very first
+       thing shown regardless of whether there's already a save — init()
+       still runs its normal boot()/renderCreateScreen() logic underneath,
+       unchanged; this is purely a cover screen the Start button dismisses. */
+    position:absolute; inset:0; z-index:55; background:var(--bg1);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
+    text-align:center;
+  }
+  #splashScreen.hidden{ display:none; }
+  #splashScreen img{ width:104px; height:104px; border-radius:26px; box-shadow:0 12px 32px rgba(125,224,255,.25); margin-bottom:22px; }
+  #splashScreen h1{ font-size:1.7rem; font-weight:800; margin:0 0 8px; letter-spacing:.01em; }
+  #splashScreen p{ font-size:.84rem; color:var(--muted); margin:0 0 36px; max-width:280px; line-height:1.5; }
+  #splashStartBtn{
+    background:linear-gradient(160deg,var(--accent),var(--accent2)); color:#08101f; font-weight:700;
+    border:none; border-radius:999px; padding:15px 48px; font-size:.96rem; cursor:pointer;
+    box-shadow:0 8px 22px rgba(125,224,255,.35);
+  }
+
   #createScreen{
     /* inset:0 anchors to #app's PADDING box, which — per spec — starts at
        #app's border edge, not past #app's own padding-top. #app's
@@ -826,6 +847,14 @@
 <body>
 <div id="app">
 
+  <!-- ============== SPLASH / START SCREEN ============== -->
+  <div id="splashScreen">
+    <img src="nn-icon-512.png" alt="Neural Nest">
+    <h1>Neural Nest</h1>
+    <p>Raise a companion. Learn a little AI security along the way.</p>
+    <button id="splashStartBtn">Start</button>
+  </div>
+
   <!-- ============== CREATION SCREEN ============== -->
   <div id="createScreen">
     <div id="createPickerView">
@@ -1460,16 +1489,33 @@ const ARCADE_GAMES = [
    as the pet/rug calibration). "size" replaces the old one-size-fits-all
    2.4rem so small sill/shelf items don't dwarf what they're sitting on. */
 const SHOP_ITEMS = [
+  // Repositioned this whole batch — candle/globe/plant had nothing under
+  // them (mid-wall percentages that didn't line up with the shelf, the
+  // window's sill, or the floor), so they read as floating. Re-measured
+  // live against the actual rendered room (habitatCard/window/shelf rects)
+  // instead of guessing more percentages blind.
   { id:"room_plant",   slot:"room", name:"Potted Plant", icon:"potted_plant", price:35, size:"2.1rem",
-    pos:"left:64%; bottom:52%;", desc:"Low-maintenance, mostly decorative." },
+    // Dropped from bottom:52% (mid-pane, floating in front of the glass) to
+    // bottom:44% — right at the window's own bottom sill (the window's
+    // lower edge sits at ~43% once converted from its SVG y), so the pot
+    // now reads as resting on the sill instead of hovering over it.
+    pos:"left:64%; bottom:44%;", desc:"Low-maintenance, mostly decorative." },
   { id:"room_bear",    slot:"room", name:"Teddy Bear", icon:"teddy_bear", price:40, size:"3rem",
     pos:"left:18%; bottom:20%;", desc:"A well-loved companion for the companion." },
   { id:"room_guitar",  slot:"room", name:"Guitar", icon:"guitar", price:45, size:"3.4rem",
     pos:"left:80%; bottom:20%;", desc:"Nobody's learned to play it yet." },
   { id:"room_picture", slot:"room", name:"Framed Picture", icon:"framed_picture", price:40, size:"2.7rem",
-    pos:"left:14%; bottom:75%;", desc:"The frame came first — the picture's still growing on everyone." },
+    // Was bottom:75% — close enough to the top of the card to read as
+    // stuck to the ceiling rather than hung on the wall. Brought down into
+    // the actual wall's vertical middle.
+    pos:"left:14%; bottom:60%;", desc:"The frame came first — the picture's still growing on everyone." },
   { id:"room_candle",  slot:"room", name:"Candle", icon:"candle", price:30, size:"1.8rem",
-    pos:"left:8%; bottom:58%;", desc:"Flickers gently. Purely for ambiance." },
+    // The shelf itself is only ~20 SVG units wide once you exclude the
+    // books/plant already painted on it — nowhere near enough room for two
+    // more icons without stacking on top of that art. Moved to the floor
+    // instead (same surface bear/guitar already sit on), off to the left
+    // of the bear rather than crowding the shelf.
+    pos:"left:6%; bottom:19%;", desc:"Flickers gently. Purely for ambiance." },
   { id:"room_balloon", slot:"room", name:"Balloon", icon:"balloon", price:35, anim:"float", size:"2.8rem",
     // Was left:90%/bottom:81% — decor items anchor by their bottom-LEFT
     // corner, not centered, so the icon actually extended up-and-right from
@@ -1477,10 +1523,16 @@ const SHOP_ITEMS = [
     // behind the top-right Shop button. Pulled down and left enough to
     // clear the HUD with real margin, and sized up along with the rest.
     pos:"left:83%; bottom:65%;", desc:"Nobody remembers whose birthday it was for." },
-  { id:"room_telescope", slot:"room", name:"Telescope", icon:"telescope", price:50, size:"3.4rem",
-    pos:"left:78%; bottom:43%;", desc:"Pointed at the window, mostly out of habit." },
+  { id:"room_telescope", slot:"room", name:"Telescope", icon:"telescope", price:50, size:"4.4rem",
+    // Was 3.4rem, floating mid-wall under the window with nothing beneath
+    // it. Sized up (a telescope this small read as a toy) and moved down
+    // to the floor, on its own tripod legs, angled up at the window —
+    // which is closer to how an actual telescope sits anyway.
+    pos:"left:60%; bottom:19%;", desc:"Pointed at the window, mostly out of habit." },
   { id:"room_globe",   slot:"room", name:"Globe", icon:"globe_showing_americas", price:45, size:"2.4rem",
-    pos:"left:15%; bottom:38%;", desc:"Spins, if you give it a nudge." },
+    // Same floor move as the candle — was bottom:38%, under the shelf with
+    // no surface of its own.
+    pos:"left:34%; bottom:18%;", desc:"Spins, if you give it a nudge." },
 
   { id:"bg_night", slot:"background", name:"Night Sky View", icon:"crescent_moon", price:60,
     desc:"Same window — now it looks out on a starry night sky." },
@@ -1825,8 +1877,19 @@ function houseSVG(viewKey){
       <linearGradient id="floorShade" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#242a54"/><stop offset="100%" stop-color="#1c2140"/>
       </linearGradient>
+      <linearGradient id="ceiling" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#0c0e20" stop-opacity=".6"/>
+        <stop offset="100%" stop-color="#0c0e20" stop-opacity="0"/>
+      </linearGradient>
     </defs>
     <rect x="0" y="0" width="280" height="200" fill="url(#wall)"/>
+    <!-- Subtle ceiling/wall seam. The lamp cord starts at y-66 (see the lamp
+         group below), well above this band — kept that way on purpose so
+         the cord still reads as disappearing into an undefined ceiling
+         above, with this shading only marking the seam lower down, closer
+         to the room itself, rather than covering the cord's own origin
+         point. -->
+    <rect x="0" y="-40" width="280" height="70" fill="url(#ceiling)"/>
     <!-- Window shifted up 14 from its original y18 slot — the HUD's Shop pill
          now sits inside #app's safe-area-inset-top padding (see .hud), so it
          no longer needs this corner kept clear as low as before. -->
@@ -3292,6 +3355,12 @@ function boot(){
     renderPet(false);
   }, 60000);
 })();
+// Splash is purely a cover screen — everything above already rendered
+// underneath it (home or the create screen); Start just reveals whichever
+// one is actually there.
+document.getElementById('splashStartBtn').addEventListener('click', ()=>{
+  document.getElementById('splashScreen').classList.add('hidden');
+});
 
 // Offline cache — see app-sw.js. Requires a real origin (https:// or
 // localhost), so this silently no-ops when the file is just opened locally.
