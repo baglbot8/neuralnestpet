@@ -1,0 +1,15 @@
+{
+  "name": "Neural Nest",
+  "short_name": "Neural Nest",
+  "description": "Raise a digital pet, learn real AI and AI security concepts to care for it, and decorate its room.",
+  "start_url": "./app.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f1224",
+  "theme_color": "#0f1224",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "nn-icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "nn-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
