@@ -47,26 +47,82 @@
   }
 
   /* ============== CREATION SCREEN ============== */
-  /* ============== SPLASH / START SCREEN ============== */
+  /* ============== SPLASH / START SCREEN ==============
+     "Bioluminescent Nursery" — picked from three mockups (see the splash
+     mockups artifact from playtesting). Soft drifting glow blobs + firefly
+     twinkle behind a pulsing badge, gradient title tying it to the
+     habitat's own warm/cool lighting. The firefly motif also now lives in
+     the habitat itself (see .habitat-firefly / #fireflyLayer) — same
+     keyframes, so it reads as one consistent visual idea across both
+     screens instead of a one-off splash effect. */
   #splashScreen{
     /* Sits above #createScreen (z-index 55 > 50) so it's the very first
        thing shown regardless of whether there's already a save — init()
        still runs its normal boot()/renderCreateScreen() logic underneath,
        unchanged; this is purely a cover screen the Start button dismisses. */
-    position:absolute; inset:0; z-index:55; background:var(--bg1);
+    position:absolute; inset:0; z-index:55; overflow:hidden;
+    background:radial-gradient(120% 90% at 50% 15%, #232a5c 0%, #0f1224 55%, #070914 100%);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
     text-align:center;
   }
   #splashScreen.hidden{ display:none; }
-  #splashScreen img{ width:104px; height:104px; border-radius:26px; box-shadow:0 12px 32px rgba(125,224,255,.25); margin-bottom:22px; }
-  #splashScreen h1{ font-size:1.7rem; font-weight:800; margin:0 0 8px; letter-spacing:.01em; }
-  #splashScreen p{ font-size:.84rem; color:var(--muted); margin:0 0 36px; max-width:280px; line-height:1.5; }
+  .splash-blobs span{ position:absolute; border-radius:50%; filter:blur(30px); opacity:.5; animation:splashDrift 9s ease-in-out infinite; }
+  .splash-blobs span:nth-child(1){ width:190px; height:190px; background:var(--accent); top:6%; left:-18%; }
+  .splash-blobs span:nth-child(2){ width:160px; height:160px; background:var(--accent2); bottom:10%; right:-14%; animation-delay:-3s; }
+  .splash-blobs span:nth-child(3){ width:130px; height:130px; background:var(--gold); top:52%; left:58%; opacity:.28; animation-delay:-6s; }
+  @keyframes splashDrift{ 0%,100%{ transform:translate(0,0) scale(1);} 50%{ transform:translate(14px,-18px) scale(1.12);} }
+  .splash-badge{
+    width:118px; height:118px; border-radius:30px; position:relative; z-index:2; margin-bottom:24px;
+    background:linear-gradient(160deg,#232a5c,#141833); display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 0 1px rgba(125,224,255,.18), 0 0 34px rgba(125,224,255,.32);
+    animation:splashBadgePulse 3.2s ease-in-out infinite;
+  }
+  @keyframes splashBadgePulse{
+    0%,100%{ box-shadow:0 0 0 1px rgba(125,224,255,.18), 0 0 34px rgba(125,224,255,.32); }
+    50%{ box-shadow:0 0 0 1px rgba(125,224,255,.3), 0 0 58px rgba(125,224,255,.55); }
+  }
+  #splashScreen img{ width:78px; height:78px; border-radius:20px; }
+  #splashScreen h1{
+    position:relative; z-index:2; font-size:1.9rem; font-weight:800; margin:0 0 8px; letter-spacing:-.01em;
+    background:linear-gradient(120deg,#eef1ff,#bfe9ff 60%,var(--accent2));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  #splashScreen p{ position:relative; z-index:2; font-size:.84rem; color:var(--muted); margin:0 0 36px; max-width:270px; line-height:1.55; }
   #splashStartBtn{
+    position:relative; z-index:2;
     background:linear-gradient(160deg,var(--accent),var(--accent2)); color:#08101f; font-weight:700;
     border:none; border-radius:999px; padding:15px 48px; font-size:.96rem; cursor:pointer;
-    box-shadow:0 8px 22px rgba(125,224,255,.35);
+    box-shadow:0 10px 26px rgba(125,224,255,.4);
   }
+  /* Firefly motif — same idea reused in the habitat SVG below
+     (.habitat-firefly / fireflyTwinkleHabitat) so it reads as one
+     consistent visual language across both screens, but as two separate
+     keyframe rules rather than one shared one: this element is a plain
+     HTML span (CSS px world), the habitat version is an SVG <circle>
+     (viewBox-unit world, ~1.34px per unit on a typical phone) — a single
+     shared translateY distance would either be imperceptible in the SVG or
+     wildly oversized on the splash, so each gets its own tuned amount. */
+  @keyframes fireflyTwinkleSplash{ 0%,100%{ opacity:0; transform:translateY(0);} 50%{ opacity:1; transform:translateY(-10px);} }
+  .splash-fireflies{ position:absolute; inset:0; z-index:1; }
+  .splash-fireflies span{
+    position:absolute; width:3px; height:3px; border-radius:50%; background:var(--gold);
+    box-shadow:0 0 6px 2px rgba(255,209,102,.7); animation:fireflyTwinkleSplash 3.6s ease-in-out infinite;
+  }
+  /* Habitat's own version of the same firefly motif (see #fireflyLayer in
+     houseSVG()) — an SVG <circle>, so its local coordinate system is
+     viewBox units (~1.34px/unit on a typical phone), not CSS px like the
+     splash span above; -3 there reads as roughly the same visible drift as
+     the splash's -10px once that scale factor is accounted for.
+     transform-box:fill-box anchors the translate/glow to the circle's own
+     center instead of the SVG's origin. box-shadow doesn't render on SVG
+     shapes, so the glow uses an SVG-safe drop-shadow filter instead. */
+  .habitat-firefly{
+    animation:fireflyTwinkleHabitat 3.6s ease-in-out infinite;
+    transform-box:fill-box; transform-origin:center;
+    filter:drop-shadow(0 0 2.5px rgba(255,209,102,.85));
+  }
+  @keyframes fireflyTwinkleHabitat{ 0%,100%{ opacity:0; transform:translateY(0);} 50%{ opacity:1; transform:translateY(-3);} }
 
   #createScreen{
     /* inset:0 anchors to #app's PADDING box, which — per spec — starts at
@@ -523,10 +579,20 @@
   }
   .fx-sword{ position:absolute; left:50%; top:24px; margin-left:-12px; font-size:1.4rem; animation:swordSwipe 1.6s ease-in-out forwards; }
 
-  .room-decor-item{ position:absolute; font-size:2.4rem; z-index:3; line-height:1; }
-  .room-decor-item img{ width:1em; height:1em; display:block; }
-  .room-decor-item-float{ animation:decorFloat 3.4s ease-in-out infinite; }
-  @keyframes decorFloat{ 0%,100%{ transform:translateY(0) rotate(-2deg);} 50%{ transform:translateY(-8px) rotate(2deg);} }
+  /* Room decor now renders as <image> elements INSIDE the room SVG itself
+     (see #decorLayer in houseSVG/renderCosmetics) instead of separately
+     positioned HTML spans — see the comment on SHOP_ITEMS' svgX/svgY/svgSize
+     for why. transform-box:fill-box makes the float animation's
+     translate/rotate anchor to the image's own bounding box instead of the
+     SVG's origin; values are unitless (bare numbers), which CSS resolves as
+     the SVG's own user-space units (viewBox units), not px — a px value
+     here would translate by 8 REAL pixels regardless of how much the whole
+     room is currently scaled up/down for the device, so the float distance
+     would look wildly different from one screen to the next; unitless
+     keeps it proportional to the room art the same way every other
+     dimension in this SVG already is. */
+  .decor-float{ animation:decorFloat 3.4s ease-in-out infinite; transform-box:fill-box; transform-origin:50% 50%; }
+  @keyframes decorFloat{ 0%,100%{ transform:translateY(0) rotate(-2deg);} 50%{ transform:translateY(-5) rotate(2deg);} }
 
   .pet-aura{
     position:absolute; left:50%; top:50px; width:110px; height:110px; transform:translate(-50%,-50%);
@@ -614,33 +680,33 @@
        Add the same safe-area-inset-bottom the navbar already accounts for
        so the FAB anchors to the navbar's visual position, not the raw
        screen edge, in both contexts. */
-    /* 68px → 56px, and bottom offset trimmed too — the whole bottom chrome
-       (this + navbar below) was eating into #panelContent's height (the
-       Arcade/Stats/activity area), which is real flex:1 space, not just a
-       visual footprint. */
-    position:absolute; left:50%; bottom:calc(6px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); width:56px; height:56px;
+    /* Went 68px → 56px → back up to 62px. The fixed (non-safe-area) part of
+       the bar's padding is already down at 2px, close to the floor of
+       what's still comfortably tappable — there isn't much more room to
+       reclaim for #panelContent by shrinking further. Past that floor, a
+       too-small FAB just leaves the reserved bar-height looking sparse
+       instead of actually giving that space back to the content above, so
+       sized back up partway to fill it instead. */
+    position:absolute; left:50%; bottom:calc(7px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); width:62px; height:62px;
     border-radius:50%; background:linear-gradient(160deg,var(--accent),var(--accent2)); display:flex;
     align-items:center; justify-content:center; box-shadow:0 8px 22px rgba(125,224,255,.45), 0 0 0 4px var(--card); z-index:20;
     border:none; cursor:pointer;
   }
-  .fab img{ width:28px; height:28px; }
+  .fab img{ width:31px; height:31px; }
 
   .navbar{
     display:flex; border-top:1px solid rgba(255,255,255,.08); background:#161a35;
-    /* Fixed baseline trimmed again (5/5 → 2/2) — this padding plus the tab's
-       own padding plus icon/label content was still adding up to a bar
-       taller than it needed to be, on top of the safe-area term below,
-       shrinking #panelContent (the arcade/info area above it) more than
-       necessary. safe-area-inset-bottom is the part that has to stay; this
-       fixed part is now close to the floor of what's still tappable. */
+    /* This fixed (non-safe-area) part is at its floor — see the .fab
+       comment above for why growing the icons/FAB back up a little, rather
+       than shrinking this further, is the better trade past this point. */
     padding:2px 4px calc(2px + env(safe-area-inset-bottom,0px));
   }
   .navbar .tab{
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; font-size:.64rem;
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:.7rem;
     color:var(--muted); background:none; border:none; padding:3px; cursor:pointer;
   }
   .navbar .tab.active{ color:var(--accent); }
-  .navbar .tab .ic{ font-size:1.2rem; }
+  .navbar .tab .ic{ font-size:1.4rem; }
 
   /* ============== QUICK-CARE SHEET (modal) ============== */
   #careSheet{
@@ -849,7 +915,16 @@
 
   <!-- ============== SPLASH / START SCREEN ============== -->
   <div id="splashScreen">
-    <img src="nn-icon-512.png" alt="Neural Nest">
+    <div class="splash-blobs"><span></span><span></span><span></span></div>
+    <div class="splash-fireflies">
+      <span style="top:22%; left:20%; animation-delay:0s;"></span>
+      <span style="top:34%; left:75%; animation-delay:-1.2s;"></span>
+      <span style="top:60%; left:15%; animation-delay:-2.4s;"></span>
+      <span style="top:68%; left:82%; animation-delay:-.6s;"></span>
+      <span style="top:15%; left:55%; animation-delay:-1.8s;"></span>
+      <span style="top:78%; left:40%; animation-delay:-3s;"></span>
+    </div>
+    <div class="splash-badge"><img src="nn-icon-512.png" alt="Neural Nest"></div>
     <h1>Neural Nest</h1>
     <p>Raise a companion. Learn a little AI security along the way.</p>
     <button id="splashStartBtn">Start</button>
@@ -1479,60 +1554,57 @@ const ARCADE_GAMES = [
    single-equip. "aura": colored glow ring, single-equip. "clickfx": pet
    effect, single-equip.
 
-   Room item pos/size: every item used to be "bottom: 2-3%" — crammed onto
-   the same strip right behind the pet-info-bar, overlapping the name/stage
-   text. Repositioned against the actual room art instead (measured live:
-   the room SVG is width-scaled and bottom-anchored — preserveAspectRatio
-   xMidYMax meet — so a room x/y converts to card-% via
-   left% = svgX/280*100 and bottom% = (200-svgY)*(cardWidth/280)/cardHeight*100;
-   verified empirically by comparing computed vs measured element rects, same
-   as the pet/rug calibration). "size" replaces the old one-size-fits-all
-   2.4rem so small sill/shelf items don't dwarf what they're sitting on. */
+   Room item position: THIS USED TO BE CSS left%/bottom% on an HTML overlay
+   span, calibrated by measuring one specific device's rendered card. That
+   calibration only holds for that one card aspect ratio — the room SVG is
+   letterboxed (preserveAspectRatio="xMidYMax meet"), and how much empty
+   space the letterbox leaves above the art changes with the card's
+   width:height ratio, which is different on every phone (varies with
+   screen height, notch, etc). A %-based position baked in from one phone's
+   letterbox amount drifts off the window/shelf/floor on any other phone —
+   which is exactly what kept happening (plant/telescope/picture measured
+   correct on one device, wrong on the next).
+   Fixed for good by dropping the CSS-overlay approach entirely: decor now
+   renders as <image> elements INSIDE the room SVG itself (see #decorLayer
+   in houseSVG()/renderCosmetics()), in the exact same 0-280×0-200 viewBox
+   coordinate space as the window/shelf/floor/lamp. Since it's the same
+   coordinate system as the rest of the room art, it scales and letterboxes
+   together with it identically on every device — there's no separate
+   calibration to drift. svgX/svgY is the image's top-left corner, svgSize
+   is its width=height, both in viewBox units (for scale reference: the
+   window is 72 units wide, the shelf is 58). */
 const SHOP_ITEMS = [
-  // Repositioned this whole batch — candle/globe/plant had nothing under
-  // them (mid-wall percentages that didn't line up with the shelf, the
-  // window's sill, or the floor), so they read as floating. Re-measured
-  // live against the actual rendered room (habitatCard/window/shelf rects)
-  // instead of guessing more percentages blind.
-  { id:"room_plant",   slot:"room", name:"Potted Plant", icon:"potted_plant", price:35, size:"2.1rem",
-    // Dropped from bottom:52% (mid-pane, floating in front of the glass) to
-    // bottom:44% — right at the window's own bottom sill (the window's
-    // lower edge sits at ~43% once converted from its SVG y), so the pot
-    // now reads as resting on the sill instead of hovering over it.
-    pos:"left:64%; bottom:44%;", desc:"Low-maintenance, mostly decorative." },
-  { id:"room_bear",    slot:"room", name:"Teddy Bear", icon:"teddy_bear", price:40, size:"3rem",
-    pos:"left:18%; bottom:20%;", desc:"A well-loved companion for the companion." },
-  { id:"room_guitar",  slot:"room", name:"Guitar", icon:"guitar", price:45, size:"3.4rem",
-    pos:"left:80%; bottom:20%;", desc:"Nobody's learned to play it yet." },
-  { id:"room_picture", slot:"room", name:"Framed Picture", icon:"framed_picture", price:40, size:"2.7rem",
-    // Was bottom:75% — close enough to the top of the card to read as
-    // stuck to the ceiling rather than hung on the wall. Brought down into
-    // the actual wall's vertical middle.
-    pos:"left:14%; bottom:60%;", desc:"The frame came first — the picture's still growing on everyone." },
-  { id:"room_candle",  slot:"room", name:"Candle", icon:"candle", price:30, size:"1.8rem",
-    // The shelf itself is only ~20 SVG units wide once you exclude the
-    // books/plant already painted on it — nowhere near enough room for two
-    // more icons without stacking on top of that art. Moved to the floor
-    // instead (same surface bear/guitar already sit on), off to the left
-    // of the bear rather than crowding the shelf.
-    pos:"left:6%; bottom:19%;", desc:"Flickers gently. Purely for ambiance." },
-  { id:"room_balloon", slot:"room", name:"Balloon", icon:"balloon", price:35, anim:"float", size:"2.8rem",
-    // Was left:90%/bottom:81% — decor items anchor by their bottom-LEFT
-    // corner, not centered, so the icon actually extended up-and-right from
-    // that point, landing almost flush with the top of the card right
-    // behind the top-right Shop button. Pulled down and left enough to
-    // clear the HUD with real margin, and sized up along with the rest.
-    pos:"left:83%; bottom:65%;", desc:"Nobody remembers whose birthday it was for." },
-  { id:"room_telescope", slot:"room", name:"Telescope", icon:"telescope", price:50, size:"4.4rem",
-    // Was 3.4rem, floating mid-wall under the window with nothing beneath
-    // it. Sized up (a telescope this small read as a toy) and moved down
-    // to the floor, on its own tripod legs, angled up at the window —
-    // which is closer to how an actual telescope sits anyway.
-    pos:"left:60%; bottom:19%;", desc:"Pointed at the window, mostly out of habit." },
-  { id:"room_globe",   slot:"room", name:"Globe", icon:"globe_showing_americas", price:45, size:"2.4rem",
-    // Same floor move as the candle — was bottom:38%, under the shelf with
-    // no surface of its own.
-    pos:"left:34%; bottom:18%;", desc:"Spins, if you give it a nudge." },
+  { id:"room_plant",   slot:"room", name:"Potted Plant", icon:"potted_plant", price:35,
+    // Sits exactly on the window's own bottom edge (window spans y4-64) —
+    // guaranteed to line up since it's the same coordinate the window
+    // itself is drawn with, not a separately-measured percentage.
+    svgX:184, svgY:40, svgSize:24, desc:"Low-maintenance, mostly decorative." },
+  { id:"room_bear",    slot:"room", name:"Teddy Bear", icon:"teddy_bear", price:40,
+    svgX:45, svgY:133, svgSize:32, desc:"A well-loved companion for the companion." },
+  { id:"room_guitar",  slot:"room", name:"Guitar", icon:"guitar", price:45,
+    svgX:236, svgY:135, svgSize:30, desc:"Nobody's learned to play it yet." },
+  { id:"room_picture", slot:"room", name:"Framed Picture", icon:"framed_picture", price:40,
+    // Wall-mounted, well clear of the shelf below it (shelf's books start
+    // at y26 — this ends at y22, a real 4-unit gap instead of touching).
+    svgX:16, svgY:-8, svgSize:30, desc:"The frame came first — the picture's still growing on everyone." },
+  { id:"room_candle",  slot:"room", name:"Candle", icon:"candle", price:30,
+    svgX:8, svgY:151, svgSize:14, desc:"Flickers gently. Purely for ambiance." },
+  { id:"room_balloon", slot:"room", name:"Balloon", icon:"balloon", price:35, anim:"float",
+    svgX:248, svgY:-14, svgSize:26, desc:"Nobody remembers whose birthday it was for." },
+  { id:"room_telescope", slot:"room", name:"Telescope", icon:"telescope", price:50,
+    // Centered under the window it's supposedly pointed at (window spans
+    // x176-248) instead of off to the side of it.
+    svgX:190, svgY:123, svgSize:42, desc:"Pointed at the window, mostly out of habit." },
+  { id:"room_globe",   slot:"room", name:"Globe", icon:"globe_showing_americas", price:45,
+    // All floor items' bottom edges (svgY+svgSize) sit at y165 or above —
+    // the pet-info-bar (name/stage tag) is a fixed 44px strip along the
+    // very bottom of the card, and how many viewBox units 44px works out to
+    // varies with the card's width (see the file-level comment on why
+    // that's unavoidable for anything not drawn inside the SVG itself).
+    // y165 leaves real clearance from that bar even on the narrowest
+    // phones this is likely to run on, instead of tucking right up against
+    // its actual pixel edge on just the one device this got measured on.
+    svgX:92, svgY:143, svgSize:22, desc:"Spins, if you give it a nudge." },
 
   { id:"bg_night", slot:"background", name:"Night Sky View", icon:"crescent_moon", price:60,
     desc:"Same window — now it looks out on a starry night sky." },
@@ -1952,27 +2024,41 @@ function houseSVG(viewKey){
     <ellipse cx="140" cy="145" rx="132" ry="34" fill="#262c58"/>
     <ellipse cx="140" cy="145" rx="80" ry="19" fill="url(#floorGlow)"/>
     <ellipse cx="140" cy="145" rx="68" ry="15" fill="none" stroke="#ffd166" stroke-opacity=".25" stroke-width="2"/>
+    <!-- Populated by renderCosmetics() with equipped room-decor <image>
+         elements, in the same viewBox coordinate space as everything above
+         (see the SHOP_ITEMS comment on svgX/svgY/svgSize for why this lives
+         inside the SVG instead of as CSS-positioned HTML overlays). Drawn
+         last so decor items with y>100 render on top of the opaque floor
+         rect instead of being painted over by it. -->
+    <g id="decorLayer"></g>
+    <!-- Ambient fireflies — the splash screen's floating/twinkling lights,
+         brought into the habitat too (same motif, see .habitat-firefly /
+         fireflyTwinkleHabitat). Plain SVG circles in viewBox coordinates
+         rather than a separate HTML overlay, same reasoning as decorLayer
+         above: keeps them scaling/letterboxing identically to the rest of
+         the room on every device instead of needing their own per-device
+         calibration. Scattered across the upper/mid room, clear of the
+         floor decor and the pet's own walking lane. -->
+    <g id="fireflyLayer">
+      <circle class="habitat-firefly" cx="55" cy="10" r="1.7" fill="#ffd97a" style="animation-delay:0s"/>
+      <circle class="habitat-firefly" cx="228" cy="100" r="1.5" fill="#ffd97a" style="animation-delay:-1.2s"/>
+      <circle class="habitat-firefly" cx="140" cy="-24" r="1.6" fill="#ffd97a" style="animation-delay:-2.4s"/>
+      <circle class="habitat-firefly" cx="95" cy="88" r="1.4" fill="#ffd97a" style="animation-delay:-.6s"/>
+      <circle class="habitat-firefly" cx="255" cy="20" r="1.7" fill="#ffd97a" style="animation-delay:-1.8s"/>
+      <circle class="habitat-firefly" cx="18" cy="95" r="1.5" fill="#ffd97a" style="animation-delay:-3s"/>
+    </g>
   </svg>`;
 }
 function renderCosmetics(){
-  const wrap = document.getElementById('houseSvgWrap');
-  const existing = wrap.parentElement.querySelectorAll('.room-decor-item');
-  existing.forEach(el=>el.remove());
+  const layer = document.getElementById('decorLayer');
   const equippedRoom = (state.equipped.room || []).map(id=>SHOP_ITEMS.find(x=>x.id===id)).filter(Boolean);
-  equippedRoom.forEach(it=>{
-    const span = document.createElement('span');
-    span.className = 'room-decor-item' + (it.anim==='float' ? ' room-decor-item-float' : '');
-    span.style.cssText = it.pos + (it.size ? ` font-size:${it.size};` : '');
-    span.innerHTML = fluentImg(it.icon, it.name);
-    // Was insertBefore(span, #petHearts) — petHearts now lives inside
-    // #petWrap (not a direct child of habitatCard/wrap.parentElement here),
-    // so that reference node was never actually a child of the node we were
-    // inserting into. insertBefore throws NotFoundError in that case, which
-    // silently aborted this whole forEach on the first equipped item —
-    // nothing ever got appended. z-index already puts decor (3) behind the
-    // pet-wrap (5), so plain appendChild is enough; no ordering needed.
-    wrap.parentElement.appendChild(span);
-  });
+  layer.innerHTML = equippedRoom.map(it=>{
+    const f = FLUENT_ICON[it.icon];
+    if(!f) return '';
+    const href = fluentUrl(f[0], f[1]);
+    const cls = it.anim==='float' ? 'decor-float' : '';
+    return `<image href="${href}" x="${it.svgX}" y="${it.svgY}" width="${it.svgSize}" height="${it.svgSize}" class="${cls}"/>`;
+  }).join('');
   const auraEl = document.getElementById('petAura');
   const auraItem = SHOP_ITEMS.find(x=>x.id===state.equipped.aura);
   if(auraItem){ auraEl.style.setProperty('--aura-color', auraItem.color); auraEl.classList.add('active'); }
@@ -3336,8 +3422,14 @@ let meta = loadMeta();
 let state = null;
 function boot(){
   document.getElementById('createScreen').classList.add('hidden');
-  renderPet(false);
+  // renderHouseScene() MUST run before renderPet(): renderPet() calls
+  // renderCosmetics(), which now looks up #decorLayer *inside* the SVG
+  // renderHouseScene() builds (room decor moved from separate HTML overlay
+  // spans into <image> elements inside the room SVG itself — see the
+  // SHOP_ITEMS comment on svgX/svgY/svgSize). Calling renderPet() first, as
+  // this did before that change, would query #decorLayer before it exists.
   renderHouseScene();
+  renderPet(false);
   renderActivityFeed();
   setScreen('home');
   const wb = wellbeing();

@@ -5,7 +5,7 @@
 // IMPORTANT: bump CACHE_NAME any time app.html is updated and re-uploaded,
 // or installed phones will keep serving the OLD cached version forever —
 // the activate handler below only clears caches whose name no longer matches.
-const CACHE_NAME = 'digitalpet-app-v11';
+const CACHE_NAME = 'digitalpet-app-v15';
 const CACHE_FILES = [
   './app.html',
   './app-manifest.json',
