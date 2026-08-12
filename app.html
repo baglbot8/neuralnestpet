@@ -634,14 +634,27 @@
   .decor-float{ animation:decorFloat 3.4s ease-in-out infinite; transform-box:fill-box; transform-origin:50% 50%; }
   @keyframes decorFloat{ 0%,100%{ transform:translateY(0) rotate(-2deg);} 50%{ transform:translateY(-5) rotate(2deg);} }
 
+  /* --aura-y: rich pets' bob/jump/happy/tap all move #petImg's own
+     translateY, not #petWrap's — see applyRichTransform — so without this
+     the aura sat glued to the ground while the pet jumped right out of it.
+     Routed through a custom property (rather than JS just overwriting
+     .style.transform) because the pulse below is a CSS @keyframes
+     animation, and an animated transform always wins the cascade over a
+     plain inline transform — JS setting the property directly would just
+     get silently clobbered every frame. var() substitution isn't subject
+     to that, so this is the one thing JS can safely drive here. */
   .pet-aura{
-    position:absolute; left:50%; top:50px; width:110px; height:110px; transform:translate(-50%,-50%);
+    position:absolute; left:50%; top:50px; width:110px; height:110px;
+    transform:translate(-50%, calc(-50% + var(--aura-y,0px)));
     border-radius:50%; z-index:1; opacity:0; transition:opacity .3s; pointer-events:none;
     background:radial-gradient(circle, var(--aura-color,transparent) 0%, transparent 70%);
     animation:auraPulse 2.6s ease-in-out infinite;
   }
   .pet-aura.active{ opacity:.55; }
-  @keyframes auraPulse{ 0%,100%{ transform:translate(-50%,-50%) scale(1);} 50%{ transform:translate(-50%,-50%) scale(1.12);} }
+  @keyframes auraPulse{
+    0%,100%{ transform:translate(-50%, calc(-50% + var(--aura-y,0px))) scale(1);}
+    50%{ transform:translate(-50%, calc(-50% + var(--aura-y,0px))) scale(1.12);}
+  }
 
   /* ---- Evolution: a proper celebratory beat instead of a quick scale-pop —
      a bright flash + expanding gold ring behind the pet (z-index 1, under
@@ -2072,6 +2085,8 @@ function stopRichAnim(){
   if(img) img.style.transform = '';
   const wrap = document.getElementById('petWrap');
   if(wrap) wrap.style.transform = ''; // back to the plain CSS translateX(-50%)
+  const auraEl = document.getElementById('petAura');
+  if(auraEl) auraEl.style.removeProperty('--aura-y'); // legacy stages never set this — don't leave it stale
 }
 // Current x this instant, mid-leg included — used to freeze a one-shot's
 // position exactly where the pet is, not just wherever its last committed
@@ -2225,6 +2240,13 @@ function applyRichTransform(wrap, img, elapsed){
   wrap.style.transform = `translateX(calc(-50% + ${tx}px))`;
   const flip = richAnim.dir > 0 ? -1 : 1; // art faces left natively — flip only when heading right
   img.style.transform = `translate(0, ${ty}px) rotate(${rot}deg) scale(${sx * flip}, ${sy})`;
+  // Equipped shop aura is also a #petWrap child, so it already travels
+  // horizontally with the wrap — but vertically it only ever had its own
+  // fixed CSS position, so it stayed on the ground while the pet bobbed,
+  // jumped, or bounced above it. Syncing --aura-y to the same ty keeps the
+  // glow riding along with the pet instead of floating apart from it.
+  const auraEl = document.getElementById('petAura');
+  if(auraEl) auraEl.style.setProperty('--aura-y', ty + 'px');
 }
 // Lightweight particle flourishes matching the motion spec (colors restyled
 // to the game's own accent/gold palette instead of the spec's steel-blue
