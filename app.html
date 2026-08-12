@@ -561,6 +561,46 @@
   }
   .fx-spark{ position:absolute; font-size:1rem; animation:sparklePop 1.6s ease forwards; }
 
+  /* ---- Rich pet (RICH_PET_ART) support ----
+     img.rich-pet: transform-origin the motion spec assumes (bottom-center-
+     ish, 50% 85%) — every other stage's CSS keyframes use plain translate/
+     scale where origin doesn't matter, so this is scoped to rich-pet only.
+     rich-fx-*: the spec's particle flourishes (sparkle burst on Happy,
+     ground ring on Jump, tap ripple, eating morsel), restyled from its
+     placeholder steel-blue to the game's own accent/gold palette. Positioned
+     off #petWrap (100px img, top:50px = vertical center — same anchor
+     .pet-hearts already uses) so they travel with the pet automatically. */
+  .pet-wrap img.rich-pet{ transform-origin:50% 85%; }
+  .rich-fx-sparkle{
+    position:absolute; left:50%; top:34px; width:6px; height:6px; border-radius:50%;
+    background:var(--gold); box-shadow:0 0 6px 1px rgba(255,209,102,.7);
+    animation:richSparkle .9s ease forwards;
+  }
+  @keyframes richSparkle{
+    0%{ opacity:0; transform:translate(-50%,-50%) rotate(var(--ang)) translateY(0) scale(.4); }
+    25%{ opacity:1; }
+    100%{ opacity:0; transform:translate(-50%,-50%) rotate(var(--ang)) translateY(-58px) scale(1); }
+  }
+  .rich-fx-ring{
+    position:absolute; left:50%; bottom:6px; width:40px; height:14px; margin-left:-20px;
+    border-radius:50%; background:radial-gradient(ellipse at center, rgba(125,224,255,.5) 0%, transparent 72%);
+    animation:richRing 1.5s ease-out forwards;
+  }
+  @keyframes richRing{
+    0%{ opacity:0; transform:scale(.4); }
+    12%{ opacity:.8; }
+    66%{ opacity:.5; transform:scale(2.4); }
+    100%{ opacity:0; transform:scale(2.8); }
+  }
+  .rich-fx-ripple{
+    position:absolute; left:50%; bottom:2px; width:40px; height:14px; margin-left:-20px;
+    border-radius:50%; border:2px solid var(--accent); opacity:.9;
+    animation:richRipple 1.05s ease-out forwards;
+  }
+  @keyframes richRipple{
+    0%{ opacity:.9; transform:scale(1); }
+    100%{ opacity:0; transform:scale(4.5); }
+  }
   @keyframes ballArc{
     0%{ transform:translate(-50px,-6px) scale(.7); opacity:0; }
     15%{ opacity:1; }
@@ -1070,8 +1110,44 @@ function fluentImg(key, alt, cls){
 }
 // Species-stage sprites use their own folder/file pairs directly (see SPECIES_LINES).
 function speciesImg(stage, cls){
-  return `<img class="${cls||''}" src="${fluentUrl(stage.f, stage.file)}" alt="${stage.sp}" loading="lazy">`;
+  // `stage` here is sometimes a raw SPECIES_LINES.stages[] entry (has .sp)
+  // and sometimes getStage()'s return shape (.sp folded into .name/.emoji
+  // instead) — .sp || .name covers both callers.
+  const rich = RICH_PET_ART[stage.sp || stage.name];
+  const src = rich ? rich.src : fluentUrl(stage.f, stage.file);
+  return `<img class="${cls||''}" src="${src}" alt="${stage.sp}" loading="lazy">`;
 }
+/* ---- Rich pet art (Claude Design handoff, "Fluent emoji animations for
+   pets" + "...pets 2") — 9 stages across all 3 evolution lines get bespoke
+   local 3D PNGs plus a full hifi motion system (see richPetAnim below)
+   instead of the generic Fluent-CDN glyph + shared CSS walk/idle-bob every
+   other stage uses. `kind` picks which Move locomotion layer applies (see
+   applyRichTransform): 'walker' = legs (fast bounce), 'swim' = fins/wings/
+   hop (smooth undulation) — matches the motion spec's walkers-vs-swimmers/
+   fliers split exactly. Owl isn't in either group in the 2nd handoff's
+   spec (its Move is labeled "Hopping" in the State Labels table, no
+   formula of its own given) — grouped with the walkers since a hop reads
+   closer to the leg-cycle bounce than the smooth glide/flap undulation.
+   whale.png/owl.png/eagle.png came from the same Fluent Emoji 3D set
+   (MIT-licensed) as the other 6, fetched directly since the 2nd handoff's
+   zip listed them in its README but didn't actually include the PNGs.
+   Note: the handoff's asset is the plain "Whale" glyph (🐋), not this
+   line's actual final-stage name "Spouting Whale" (🐳) — visually close
+   enough (and clearly the intended pairing) to use as-is. All 9 source
+   PNGs face LEFT, same convention as the rest of the roster (Owl's source
+   art faces forward — spec treats it as left-facing for Move consistency,
+   so it never gets the flip). */
+const RICH_PET_ART = {
+  'T-Rex':         { src:'pet-art/trex.png',     kind:'walker' },
+  'Sauropod':      { src:'pet-art/sauropod.png', kind:'walker' },
+  'Dragon':        { src:'pet-art/dragon.png',   kind:'swim' },
+  'Dolphin':       { src:'pet-art/dolphin.png',  kind:'swim' },
+  'Shark':         { src:'pet-art/shark.png',    kind:'swim' },
+  'Phoenix':       { src:'pet-art/phoenix.png',  kind:'swim' },
+  'Owl':           { src:'pet-art/owl.png',      kind:'walker' },
+  'Eagle':         { src:'pet-art/eagle.png',    kind:'swim' },
+  'Spouting Whale':{ src:'pet-art/whale.png',    kind:'swim' }
+};
 
 /* ============== 2. SPECIES ROSTER ==============
    3 evolution lines, 6 shared tiers each. All start from the same Egg so the
@@ -1923,6 +1999,254 @@ function motionProfile(species, stageIdx){
   };
 }
 
+/* ============== 13b. RICH PET ANIMATION ==============
+   Full-fidelity motion engine for the 6 RICH_PET_ART stages, ported
+   directly from the Claude Design handoff's motion spec ("Fluent emoji
+   animations for pets" README). Six states — idle, move, jump, happy,
+   eating, tap — each a self-contained 0→1 loop, computed per-frame with
+   requestAnimationFrame and written straight to #petImg's transform (order
+   translateX → translateY → rotate → scale, origin 50% 85%, exactly as the
+   spec calls for). This completely replaces the legacy CSS walk/idle-bob/
+   squish system for these 6 stages only — see the isWalking/idle-bob gating
+   in renderPet() — everything else in the roster is untouched.
+
+   Default (untriggered) behavior alternates Move laps with brief Idle
+   pauses, echoing the old system's "always pacing, occasional random hop"
+   feel while actually using the two states the spec defines for it. Jump/
+   Happy/Eating/Tap are one-shot: triggered by playRichState(), they play
+   exactly one loop then hand back control to the default cycle. */
+const RICH_BOUNCE = 1; // spec's tuned-default intensity multiplier
+// Duration of ONE leg (edge→middle or middle→edge — every leg covers the
+// same `richRange()` distance) per locomotion kind, ms. Deliberately slower
+// than the design-spec prototype's 4s/1600px full-screen sweep: this
+// habitat is a ~480px-wide card, not a full-bleed frame, so covering it at
+// that pace read as frantic. Paired with a bounded range (richRange(),
+// below) instead of the spec's off-canvas-both-ends wrap. Half of what a
+// full edge-to-edge lap used to take, since each lap is now two legs with a
+// middle stop between them (see tickRichAnim) — keeps the same on-screen
+// speed as before rather than quietly halving it.
+const RICH_MOVE_DURATION = { walker:3250, swim:2750 };
+const RICH_DURATIONS = { idle:3000, jump:2200, happy:2500, eating:3000, tap:1800 };
+function easeOutElastic(x){
+  const c4 = (2 * Math.PI) / 3;
+  return x <= 0 ? 0 : x >= 1 ? 1 : Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * c4) + 1;
+}
+// x/dir track the pet's own persistent position/facing so every state reads
+// from — and one-shots freeze onto — wherever it actually is, instead of
+// each state defining its own (usually centered) baseline. That's what kept
+// Eating/Happy/Tap from snapping the pet back to center: previously each
+// one-shot's transform simply never set tx, so it defaulted to 0.
+const RICH_EDGE_PAUSE = 1000;   // idle at either edge — 1s
+const RICH_MIDDLE_PAUSE = 3000; // idle passing through the middle — 3s
+const richAnim = {
+  raf:null, kind:'walker', state:'move', stateStart:0, oneShot:false,
+  x:0, dir:-1,           // dir -1 = facing/moving left (art's native facing, no flip), +1 = right (flipped)
+  moveFrom:0, moveTo:0,  // this leg's start/end x, in px from center
+  legTarget:'edge',      // what this leg (or the leg a one-shot interrupted) is walking TOWARD: 'edge' | 'middle'
+  idleUntil:0, pauseKind:'edge' // pauseKind while state==='idle': 'edge' | 'middle' | 'settle' (post-one-shot)
+};
+function richRange(){
+  const habitat = document.getElementById('habitatCard');
+  const w = habitat ? habitat.clientWidth : 300;
+  return Math.max(40, w / 2 - 70); // stays inside the card, doesn't clip the edges
+}
+function manageRichAnim(richDef){
+  if(!richDef){ stopRichAnim(); return; }
+  richAnim.kind = richDef.kind;
+  if(!richAnim.raf) startRichAnim();
+}
+function startRichAnim(){
+  richAnim.x = 0; richAnim.dir = -1;
+  richAnim.state = 'move';
+  richAnim.moveFrom = 0;
+  richAnim.legTarget = 'edge';
+  richAnim.moveTo = richAnim.dir * richRange();
+  richAnim.stateStart = performance.now();
+  richAnim.oneShot = false;
+  richAnim.raf = requestAnimationFrame(tickRichAnim);
+}
+function stopRichAnim(){
+  if(richAnim.raf) cancelAnimationFrame(richAnim.raf);
+  richAnim.raf = null;
+  const img = document.getElementById('petImg');
+  if(img) img.style.transform = '';
+  const wrap = document.getElementById('petWrap');
+  if(wrap) wrap.style.transform = ''; // back to the plain CSS translateX(-50%)
+}
+// Current x this instant, mid-leg included — used to freeze a one-shot's
+// position exactly where the pet is, not just wherever its last committed
+// waypoint was.
+function richCurrentX(now){
+  if(richAnim.state !== 'move') return richAnim.x;
+  const dur = RICH_MOVE_DURATION[richAnim.kind] || RICH_MOVE_DURATION.walker;
+  const t = Math.min((now - richAnim.stateStart) / dur, 1);
+  return richAnim.moveFrom + (richAnim.moveTo - richAnim.moveFrom) * t;
+}
+// Plays a one-shot state (jump/happy/eating/tap) once, then resumes the
+// default idle/move wander from the same spot it interrupted — moveTo/
+// legTarget are deliberately left untouched here, so "settle" (see
+// tickRichAnim) picks the interrupted leg back up instead of restarting it.
+// No-ops if this pet isn't currently rich-animated (e.g. tapping an egg or
+// a legacy-CSS stage) or another one-shot is mid-play.
+function playRichState(name){
+  if(!richAnim.raf) return;
+  const now = performance.now();
+  richAnim.x = richCurrentX(now);
+  if(richAnim.oneShot) return;
+  richAnim.state = name;
+  richAnim.stateStart = now;
+  richAnim.oneShot = true;
+  spawnRichFx(name);
+}
+function tickRichAnim(now){
+  richAnim.raf = requestAnimationFrame(tickRichAnim);
+  const img = document.getElementById('petImg');
+  const wrap = document.getElementById('petWrap');
+  if(!img || !wrap || !state){ return; }
+  let elapsed = now - richAnim.stateStart;
+
+  if(richAnim.state === 'move'){
+    const dur = RICH_MOVE_DURATION[richAnim.kind] || RICH_MOVE_DURATION.walker;
+    if(elapsed >= dur){
+      richAnim.x = richAnim.moveTo;
+      richAnim.state = 'idle';
+      richAnim.pauseKind = richAnim.legTarget; // arrived at an edge or the middle — pause length depends on which
+      richAnim.idleUntil = now + (richAnim.legTarget === 'edge' ? RICH_EDGE_PAUSE : RICH_MIDDLE_PAUSE);
+      richAnim.stateStart = now;
+      elapsed = 0;
+    }
+  } else if(richAnim.oneShot){
+    const dur = RICH_DURATIONS[richAnim.state];
+    if(elapsed >= dur){
+      richAnim.oneShot = false;
+      richAnim.state = 'idle';
+      richAnim.pauseKind = 'settle'; // interrupted mid-leg — resume that SAME leg, no waypoint logic
+      richAnim.idleUntil = now + 400; // brief settle, not a full edge/middle pause
+      richAnim.stateStart = now;
+      elapsed = 0;
+    }
+  } else if(richAnim.state === 'idle'){
+    if(now >= richAnim.idleUntil){
+      if(richAnim.pauseKind === 'edge'){
+        richAnim.dir *= -1;               // turn around at the edge
+        richAnim.moveFrom = richAnim.x;
+        richAnim.moveTo = 0;
+        richAnim.legTarget = 'middle';
+      } else if(richAnim.pauseKind === 'middle'){
+        richAnim.moveFrom = 0;            // keep going the same way, out to the far edge
+        richAnim.moveTo = richAnim.dir * richRange();
+        richAnim.legTarget = 'edge';
+      } else { // 'settle' — pick the interrupted leg back up from here (moveTo/legTarget untouched since)
+        richAnim.moveFrom = richAnim.x;
+      }
+      richAnim.state = 'move';
+      richAnim.stateStart = now;
+      elapsed = 0;
+    }
+  }
+  applyRichTransform(wrap, img, elapsed);
+}
+function applyRichTransform(wrap, img, elapsed){
+  const b = RICH_BOUNCE;
+  const TAU = Math.PI * 2;
+  let tx = richAnim.x, ty = 0, rot = 0, sx = 1, sy = 1;
+  switch(richAnim.state){
+    case 'idle': {
+      const p = (elapsed % RICH_DURATIONS.idle) / RICH_DURATIONS.idle;
+      const s = Math.sin(p * TAU);
+      ty = -s * 14 * b; sy = 1 + s * 0.035 * b; sx = 1 - s * 0.035 * b; rot = s * 3 * b;
+      break; // tx stays richAnim.x — idle holds position, it doesn't recenter
+    }
+    case 'move': {
+      const dur = RICH_MOVE_DURATION[richAnim.kind] || RICH_MOVE_DURATION.walker;
+      const p = Math.min(elapsed / dur, 1);
+      tx = richAnim.moveFrom + (richAnim.moveTo - richAnim.moveFrom) * p;
+      if(richAnim.kind === 'walker'){
+        const s = Math.sin(p * TAU * 6);
+        ty = -Math.abs(s) * 16 * b; rot = s * 4 * b;
+        sy = 1 + Math.abs(s) * 0.02 * b; sx = 1 - Math.abs(s) * 0.02 * b;
+      } else {
+        const s = Math.sin(p * TAU * 3);
+        ty = s * 20 * b; rot = s * 8 * b; sy = 1 + s * 0.03 * b;
+      }
+      break;
+    }
+    case 'jump': {
+      const p = Math.min(elapsed / RICH_DURATIONS.jump, 1);
+      if(p < 0.12){
+        const t = p / 0.12;
+        sy = 1 - t * 0.18 * b; sx = 1 + t * 0.13 * b;
+      } else if(p < 0.62){
+        const t = (p - 0.12) / 0.5, s = Math.sin(t * Math.PI);
+        ty = -s * 190 * b; sy = 1 + s * 0.06 * b; sx = 1 - s * 0.06 * b; rot = -s * 5 * b;
+      } else if(p < 0.78){
+        const t = (p - 0.62) / 0.16, s = Math.sin(t * Math.PI);
+        sy = 1 - s * 0.22 * b; sx = 1 + s * 0.16 * b;
+      } else {
+        const t = (p - 0.78) / 0.22, settle = Math.sin(Math.PI * (1 - t)) * (1 - t);
+        sy = 1 + settle * 0.04 * b; sx = 1 - settle * 0.03 * b;
+      }
+      break; // tx stays richAnim.x — jumps in place, wherever that is
+    }
+    case 'happy': {
+      const p = Math.min(elapsed / RICH_DURATIONS.happy, 1);
+      const bh = Math.abs(Math.sin(p * TAU * 2));
+      ty = -bh * 70 * b; sy = 1 - bh * 0.12 * b; sx = 1 + bh * 0.09 * b; rot = Math.sin(p * TAU * 2) * 6 * b;
+      break;
+    }
+    case 'eating': {
+      const p = Math.min(elapsed / RICH_DURATIONS.eating, 1);
+      const chomp = Math.max(0, 1 - Math.abs((p - 0.45) / 0.12));
+      ty = chomp * 34 * b; sy = 1 - chomp * 0.15 * b; sx = 1 + chomp * 0.1 * b; rot = -chomp * 4;
+      break;
+    }
+    case 'tap': {
+      const p = Math.min(elapsed / RICH_DURATIONS.tap, 1);
+      const raw = easeOutElastic(Math.min(p * 2.2, 1));
+      sy = 1 + (raw - 1) * 0.5 * b; sx = 1 - (raw - 1) * 0.5 * b; ty = (raw - 1) * 10;
+      break;
+    }
+  }
+  // Horizontal position moves #petWrap itself (not #petImg) — petHearts/
+  // careFx/petAura are all children of #petWrap (see markup), so this is
+  // what makes those effects travel WITH the pet instead of firing at a
+  // fixed center point the pet may no longer be standing at. #petImg only
+  // ever carries the bob/rotate/scale/facing-flip, same as it always did.
+  wrap.style.transform = `translateX(calc(-50% + ${tx}px))`;
+  const flip = richAnim.dir > 0 ? -1 : 1; // art faces left natively — flip only when heading right
+  img.style.transform = `translate(0, ${ty}px) rotate(${rot}deg) scale(${sx * flip}, ${sy})`;
+}
+// Lightweight particle flourishes matching the motion spec (colors restyled
+// to the game's own accent/gold palette instead of the spec's steel-blue
+// placeholders). All self-remove; harmless if #petWrap has moved on. Eating
+// has none of its own — the existing generic fx-meat (🍖 drop, see
+// playCareFX) already covers it, so a second particle here would just be a
+// duplicate morsel flying in on top of it.
+function spawnRichFx(kind){
+  const wrap = document.getElementById('petWrap');
+  if(!wrap) return;
+  if(kind === 'happy'){
+    [-55, 0, 55].forEach((ang, i)=>{
+      const s = document.createElement('span');
+      s.className = 'rich-fx-sparkle';
+      s.style.setProperty('--ang', ang + 'deg');
+      s.style.animationDelay = (i * 150) + 'ms';
+      wrap.appendChild(s);
+      setTimeout(()=> s.remove(), 900 + i * 150);
+    });
+  } else if(kind === 'jump'){
+    const ring = document.createElement('span');
+    ring.className = 'rich-fx-ring';
+    wrap.appendChild(ring);
+    setTimeout(()=> ring.remove(), 1500);
+  } else if(kind === 'tap'){
+    const ripple = document.createElement('span');
+    ripple.className = 'rich-fx-ripple';
+    wrap.appendChild(ripple);
+    setTimeout(()=> ripple.remove(), 1050);
+  }
+}
+
 /* ============== 14. HABITAT (house scene + pet render) ==============
    One shared house interior for all 3 species. The Lizard stage of Wyrmborn
    (index 1) is the one glyph that reads as upright/bipedal rather than
@@ -2150,10 +2474,12 @@ function renderPet(justEvolved){
   document.getElementById('petStageTag').textContent =
     stage.name === TIERS[stageIdx] ? stage.name : `${stage.name} · ${TIERS[stageIdx]}`;
 
+  const richDef = RICH_PET_ART[stage.name]; // getStage()'s shape — see speciesImg's comment on the two shapes
   const petImg = document.getElementById('petImg');
-  petImg.src = fluentUrl(stage.f, stage.file);
+  petImg.src = richDef ? richDef.src : fluentUrl(stage.f, stage.file);
   petImg.alt = stage.name;
   petImg.classList.toggle('egg-mystery', stageIdx === 0);
+  petImg.classList.toggle('rich-pet', !!richDef);
   // Egg starts shaking once at least halfway to hatching — same threshold
   // the original build used for its own pre-hatch tremble.
   const nextT = nextStageThreshold(state.xp);
@@ -2162,7 +2488,13 @@ function renderPet(justEvolved){
 
   const wrap = document.getElementById('petWrap');
   wrap.classList.toggle('wall', isLizardWall);
-  const isWalking = stageIdx > 0 && !isLizardWall;
+  // Rich pets (see RICH_PET_ART) get their own full-fidelity JS motion
+  // system (richPetAnim, below) that drives #petImg's transform directly
+  // every frame, including its own screen-crossing Move — so none of the
+  // legacy CSS walk/idle-bob/hop machinery should touch them at all; two
+  // transform sources fighting on the same element is how pets used to end
+  // up stuttering mid-stride.
+  const isWalking = !richDef && stageIdx > 0 && !isLizardWall;
   wrap.classList.toggle('walking', isWalking);
   // petAura/petHearts/careFx all live inside #petWrap now (see markup), so
   // moving the pet — floor vs wall — moves all of them automatically; no
@@ -2203,14 +2535,18 @@ function renderPet(justEvolved){
     wrap.style.setProperty('--hop-height', mp.hop);
   }
   const squishEl = document.getElementById('petSquish');
-  if(squishEl) squishEl.classList.toggle('idle-bob', stageIdx > 0);
+  if(squishEl) squishEl.classList.toggle('idle-bob', !richDef && stageIdx > 0);
   // --walk-duration/--hop-height are set on #petWrap above and inherit down
   // to #petStatus (a child) automatically — custom properties inherit by
   // default — so the per-species statusCounterHop* keyframes always match
   // whatever hop this particular pet actually has, no need to set them
   // again here.
+  manageRichAnim(richDef);
   if(statusEl) statusEl.classList.toggle('walking', isWalking);
-  if(justEvolved) playEvolveFX(wrap);
+  if(justEvolved){
+    playEvolveFX(wrap);
+    if(richDef) playRichState('happy');
+  }
 
   const lowNeeds = NEEDS.filter(n => state.needs[n.id] < NEED_LOW);
   const warnEl = document.getElementById('warnBanner');
@@ -2781,6 +3117,7 @@ function playCareFX(needId){
   let html = "";
   if(needId === 'hunger'){
     html = `<span class="fx-meat">🍖</span>`;
+    playRichState('eating'); // no-op for non-rich pets, see richPetAnim
   } else if(needId === 'hygiene'){
     html = `
       <span class="fx-bubble" style="left:38%; animation-delay:0s;"></span>
@@ -2794,6 +3131,7 @@ function playCareFX(needId){
       <span class="fx-spark" style="left:40%; top:64px; animation-delay:.9s;">✨</span>`;
   } else if(needId === 'play'){
     html = `<span class="fx-ball">⚽</span>`;
+    playRichState('happy'); // no-op for non-rich pets, see richPetAnim
   } else if(needId === 'knowledge'){
     html = `<span class="fx-sword">⚔️</span>`;
   }
@@ -2843,10 +3181,17 @@ function petPet(){
   // afterward. Nothing here actually depended on restarting it (the heart
   // particles above already get a fresh inline animation each time), so the
   // restart is just removed.
-  const squishEl = document.getElementById('petSquish');
-  if(squishEl){
-    squishEl.classList.remove('squish-active'); void squishEl.offsetWidth; // restart if tapped again mid-squish
-    squishEl.classList.add('squish-active');
+  if(richAnim.raf){
+    // Rich pets get the spec's elastic tap-boing instead of the legacy
+    // petSquish class (see richPetAnim) — petPet() itself still runs
+    // unconditionally above for the heart/click-fx particles either way.
+    playRichState('tap');
+  } else {
+    const squishEl = document.getElementById('petSquish');
+    if(squishEl){
+      squishEl.classList.remove('squish-active'); void squishEl.offsetWidth; // restart if tapped again mid-squish
+      squishEl.classList.add('squish-active');
+    }
   }
 }
 document.getElementById('petWrap').addEventListener('click', petPet);
@@ -3408,8 +3753,12 @@ function scheduleRandomHop(){
     // ~55% chance each tick, and only for hatched, floor-anchored stages —
     // the wall-crawling Lizard already has its own full-time rotate/crawl
     // animation on the img itself, so a translateY hop on its wrapper would
-    // just look like an unrelated wobble rather than a hop.
-    if(sq && stageIdx > 0 && !isLizardWall && Math.random() < 0.55){
+    // just look like an unrelated wobble rather than a hop. Rich pets
+    // (richAnim.raf running) get the spec's real crouch-arc-land Jump state
+    // instead of the legacy petBigHop class.
+    if(richAnim.raf && stageIdx > 0 && Math.random() < 0.55){
+      playRichState('jump');
+    } else if(sq && stageIdx > 0 && !isLizardWall && !richAnim.raf && Math.random() < 0.55){
       sq.classList.remove('big-hop'); void sq.offsetWidth;
       sq.classList.add('big-hop');
     }
