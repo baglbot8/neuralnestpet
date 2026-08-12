@@ -2152,9 +2152,14 @@ function applyRichTransform(wrap, img, elapsed){
   let tx = richAnim.x, ty = 0, rot = 0, sx = 1, sy = 1;
   switch(richAnim.state){
     case 'idle': {
+      // Amplitudes cut to well under half the spec's originals (14/.035/3)
+      // — the middle waypoint pause is exactly one full 3s idle loop long,
+      // so it was always showing the complete dip+squash at full strength,
+      // which read as an exaggerated "sink" every time the pet stopped
+      // in the middle of the habitat.
       const p = (elapsed % RICH_DURATIONS.idle) / RICH_DURATIONS.idle;
       const s = Math.sin(p * TAU);
-      ty = -s * 14 * b; sy = 1 + s * 0.035 * b; sx = 1 - s * 0.035 * b; rot = s * 3 * b;
+      ty = -s * 6 * b; sy = 1 + s * 0.015 * b; sx = 1 - s * 0.015 * b; rot = s * 1.5 * b;
       break; // tx stays richAnim.x — idle holds position, it doesn't recenter
     }
     case 'move': {
